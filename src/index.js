@@ -5,7 +5,7 @@ const express = require('express')
 const app = express()
 const morgan = require('morgan')
 
-const Person = require("./models/Persons")
+const Person = require('./models/Persons')
 const PORT = process.env.PORT || 3001
 
 app.use(express.static('build'))
@@ -13,10 +13,10 @@ app.use(express.json())
 
 
 
-morgan.token('body', (req, res) => req.body)
+morgan.token('body', (req) => req.body)
 app.use(morgan((tokens, req, res) => {
   const method = tokens.method(req, res)
-  const extra = (method == "POST" | method == "PUT") ? JSON.stringify(tokens.body(req, res)) : ""
+  const extra = (method == 'POST' | method == 'PUT') ? JSON.stringify(tokens.body(req, res)) : ''
   return [
     tokens.method(req, res),
     tokens.url(req, res),
@@ -35,7 +35,7 @@ const errorResponce = (response, msg) =>
 
 
 app.get('/info', (req, res) => {
-  count = Person.count().then(count => {
+  Person.count().then(count => {
     const datestr = new Date().toString()
     res.send('<h1>Phonebook has info for ' + count + ' people</h1>' + datestr)
   })
@@ -52,12 +52,12 @@ app.get('/api/persons', (req, res, next) => {
 app.get('/api/persons/:id', (request, response, next) => {
   const id = String(request.params.id)
 
-  console.log("Find ID:", id)
+  console.log('Find ID:', id)
   Person.findById(id)
     .then(person => {
       response.json(person.toJSON())
     })
-    .catch(error => { console.log("FUUCK ERRRO!"); console.log("next", next); return next(error) })
+    .catch(error => { console.log('FUUCK ERRRO!'); console.log('next', next); return next(error) })
 })
 
 
@@ -65,14 +65,14 @@ app.put('/api/persons/:id', (request, response, next) => {
   const id = String(request.params.id)
   const body = request.body
 
-  Person.findByIdAndUpdate(id, body, {context: 'query', new: true,  runValidators: true  })
+  Person.findByIdAndUpdate(id, body, { context: 'query', new: true, runValidators: true })
     .then(person => {
       if (person) {
-        console.log("Updated", person)
+        console.log('Updated', person)
         response.json(person.toJSON())
       }
       else
-         errorResponce(response, 'id not found')
+        errorResponce(response, 'id not found')
     })
     .catch(error => next(error))
 })
@@ -84,7 +84,7 @@ app.delete('/api/persons/:id', (request, response, next) => {
       if (person)
         response.status(204).end()
       else
-      errorResponce(response, 'id not found')
+        errorResponce(response, 'id not found')
     })
     .catch(error => next(error))
 })
@@ -98,9 +98,9 @@ app.post('/api/persons', (request, response, next) => {
 
   const check_sanity = (p) => {
     if (p.name.length <= 0)
-      return 'invalid name';
+      return 'invalid name'
     if (p.number.length <= 0)
-      return 'invalid number';
+      return 'invalid number'
     return null
   }
 
@@ -122,19 +122,19 @@ app.post('/api/persons', (request, response, next) => {
 
 
 const unknownEndpoint = (request, response) => {
-  console.log("Unknown endpoint", request)
+  console.log('Unknown endpoint', request)
   response.status(404).send({ error: 'unknown endpoint' })
 }
 app.use(unknownEndpoint)
 
 const errorHandler = (error, request, response, next) => {
 
-  console.log("Error name", error.name)
+  console.log('Error name', error.name)
   if (error.name === 'CastError') {
     return errorResponce(response, 'invalid id value')
   } else if (error.name === 'ValidationError') {
-    return errorResponce( response, 
-      error.message )
+    return errorResponce(response,
+      error.message)
   }
   next(error)
 }
