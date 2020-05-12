@@ -7,12 +7,16 @@
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build:ui": "cd frontend && yarn build && rm -rf ./build && cp -r frontend/build . && echo 'done'"
+    "build:ui_build": "cd frontend && yarn build",
+    "build:ui": "npm run build:ui_build && rm -rf ./build && cp -r frontend/build . && echo 'done'"
   },
   "author": "Pauli Salmenrinne",
   "license": "MIT",
   "dependencies": {
+    "dotenv": "^8.2.0",
     "express": "^4.17.1",
+    "mongoose": "^5.9.13",
+    "mongoose-unique-validator": "^2.0.3",
     "morgan": "^1.10.0"
   },
   "devDependencies": {

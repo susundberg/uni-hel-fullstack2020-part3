@@ -1,138 +1,145 @@
 
+require('dotenv').config()
 
 const express = require('express')
 const app = express()
 const morgan = require('morgan')
 
+const Person = require("./models/Persons")
 const PORT = process.env.PORT || 3001
 
-app.use(express.json())
 app.use(express.static('build'))
+app.use(express.json())
 
-morgan.token('body', function (req, res) { return req.body })
-app.use(morgan(function (tokens, req, res) {
-  const extra = tokens.method(req, res) == "POST" ? JSON.stringify( tokens.body(req,res) ) : ""
 
+
+morgan.token('body', (req, res) => req.body)
+app.use(morgan((tokens, req, res) => {
+  const method = tokens.method(req, res)
+  const extra = (method == "POST" | method == "PUT") ? JSON.stringify(tokens.body(req, res)) : ""
   return [
     tokens.method(req, res),
     tokens.url(req, res),
     tokens.status(req, res),
     tokens.res(req, res, 'content-length'), '-',
     tokens['response-time'](req, res), 'ms',
-    extra 
+    extra
   ].join(' ')
 }))
 
-let DATABASE = {
-  "persons": [
-    {
-      "name": "Arto Hellas",
-      "number": "040-123456",
-      "id": 1
-    },
-    {
-      "name": "Ada Lovelace",
-      "number": "39-44-5323523",
-      "id": 2
-    },
-    {
-      "name": "Dan Abramov",
-      "number": "12-43-234345",
-      "id": 3
-    },
-    {
-      "name": "Mary Poppendieck",
-      "number": "39-23-6423122",
-      "id": 4
-    }
-  ]
-}
 
-
-const error_response = (response, msg) =>
+const errorResponce = (response, msg) =>
   (response.status(400).json({
     error: msg
   }))
 
+
 app.get('/info', (req, res) => {
-  count = DATABASE["persons"].length
-  const datestr = new Date().toString()
-  res.send('<h1>Phonebook has info for ' + count + ' people</h1>' + datestr)
-
+  count = Person.count().then(count => {
+    const datestr = new Date().toString()
+    res.send('<h1>Phonebook has info for ' + count + ' people</h1>' + datestr)
+  })
 })
 
-app.get('/api/persons', (req, res) => {
-  res.json(DATABASE["persons"])
+app.get('/api/persons', (req, res, next) => {
+  Person.find()
+    .then(items => {
+      res.json(items.map(item => item.toJSON()))
+    })
+    .catch(error => next(error))
 })
 
-app.get('/api/persons/:id', (request, response) => {
-  const id = Number(request.params.id)
-  const person = DATABASE["persons"].find(x => x.id === id)
+app.get('/api/persons/:id', (request, response, next) => {
+  const id = String(request.params.id)
 
-  if (person) {
-    response.json(person)
-  } else {
-    return error_response(response, 'not found')
-  }
-})
-
-
-
-app.delete('/api/persons/:id', (request, response) => {
-  const id = Number(request.params.id)
-  const index = DATABASE["persons"].findIndex(x => x.id === id)
-
-  if (index >= 0) {
-    DATABASE["persons"].splice(index)
-    response.json({})
-  } else {
-    return error_response(response, 'not found')
-  }
+  console.log("Find ID:", id)
+  Person.findById(id)
+    .then(person => {
+      response.json(person.toJSON())
+    })
+    .catch(error => { console.log("FUUCK ERRRO!"); console.log("next", next); return next(error) })
 })
 
 
-app.post('/api/persons', (request, response) => {
+app.put('/api/persons/:id', (request, response, next) => {
+  const id = String(request.params.id)
+  const body = request.body
+
+  Person.findByIdAndUpdate(id, body, {context: 'query', new: true,  runValidators: true  })
+    .then(person => {
+      if (person) {
+        console.log("Updated", person)
+        response.json(person.toJSON())
+      }
+      else
+         errorResponce(response, 'id not found')
+    })
+    .catch(error => next(error))
+})
+
+app.delete('/api/persons/:id', (request, response, next) => {
+  const id = String(request.params.id)
+  Person.findByIdAndRemove(id)
+    .then(person => {
+      if (person)
+        response.status(204).end()
+      else
+      errorResponce(response, 'id not found')
+    })
+    .catch(error => next(error))
+})
+
+
+app.post('/api/persons', (request, response, next) => {
   const body = request.body
 
   if (!body)
-     return error_response(response, 'body missing')
-      
-  console.log(request.body) 
-  const generateId = () => {
-    return parseInt(Math.random() * 200000000)
-  }
+    return errorResponce(response, 'body missing')
 
   const check_sanity = (p) => {
     if (p.name.length <= 0)
       return 'invalid name';
     if (p.number.length <= 0)
       return 'invalid number';
-
-    const index = DATABASE["persons"].findIndex(x => x.name.toUpperCase() === p.name.toUpperCase())
-
-    if (index >= 0)
-      return 'name must be unique'
-
     return null
-
   }
 
-
-
-  const person = {
+  const person = new Person({
     name: body.name ? body.name.toString() : '',
     number: body.number ? body.number.toString() : '',
-    id: generateId(),
-  }
+  })
 
   const error_msg = check_sanity(person)
   if (error_msg != null) {
-    return error_response(response, error_msg)
+    return errorResponce(response, error_msg)
   }
 
-  DATABASE["persons"].push(person)
-  response.json(person)
+  person.save()
+    .then(dbPerson => { response.json(dbPerson.toJSON()) })
+    .catch(error => next(error))
 })
+
+
+
+const unknownEndpoint = (request, response) => {
+  console.log("Unknown endpoint", request)
+  response.status(404).send({ error: 'unknown endpoint' })
+}
+app.use(unknownEndpoint)
+
+const errorHandler = (error, request, response, next) => {
+
+  console.log("Error name", error.name)
+  if (error.name === 'CastError') {
+    return errorResponce(response, 'invalid id value')
+  } else if (error.name === 'ValidationError') {
+    return errorResponce( response, 
+      error.message )
+  }
+  next(error)
+}
+
+app.use(errorHandler)
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`)

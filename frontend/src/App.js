@@ -18,6 +18,10 @@ const App = () => {
         setstateError({ type, message })
     }
 
+    const onErrorMessage = (msg, error) => {
+        setstateError({type:"error", message: msg + ": " + error.response.data.error })
+    }
+
     useEffect(() => {
         console.log('effect');
         PersonsService.getAll()
@@ -27,7 +31,7 @@ const App = () => {
             }
             )
             .catch(error => {
-                onMessage("error", "Cannot connect")
+                onErrorMessage("Unable to connect", error)
             })
     }, []);
 
@@ -43,7 +47,7 @@ const App = () => {
     }
 
     const onDelete = (event) => {
-        const targetID = parseInt(event.target.name)
+        const targetID = (event.target.name)
         console.log("delete", targetID)
         console.log(persons)
 
@@ -64,9 +68,9 @@ const App = () => {
                 newPers.splice(index, 1);
                 console.log(newPers)
                 setPersons(newPers)
-                onMessage("info", "Information " +  persons[index].name + " was deleted!" ) 
+                onMessage("info", "Information " + persons[index].name + " was deleted!")
             })
-            .catch(error => { onMessage("error", "Information " +  persons[index].name + " has been deleted before!" ) })
+            .catch(error => { onErrorMessage("Unable to delete", error) })
     }
 
     const onNewPersonSubmit = (event) => {
@@ -79,10 +83,10 @@ const App = () => {
         console.log("found", index)
         const newPerson = { ...stateNewPerson[0] }
 
-        const finalizeSubmit = (newPersons, message ) => {
+        const finalizeSubmit = (newPersons, message) => {
             stateNewPerson[1]({ 'name': '', 'number': '' })
             setPersons(newPersons);
-            onMessage( "info", message )
+            onMessage("info", message)
 
         }
 
@@ -97,9 +101,9 @@ const App = () => {
                 .then(dbPerson => {
                     let newPersons = [...persons]
                     newPersons[index] = dbPerson
-                    finalizeSubmit(newPersons, "Modified " + dbPerson.name );
+                    finalizeSubmit(newPersons, "Modified " + dbPerson.name);
                 })
-                .catch(error => { onMessage("error", "Information " +  persons[index].name + " has been deleted before!" ) })
+                .catch(error => { onErrorMessage("Unable to update", error) })
 
             return;
         }
@@ -107,10 +111,10 @@ const App = () => {
             // Did not exists, create new.
             PersonsService.create(newPerson)
                 .then(dbPerson => {
-                    finalizeSubmit(persons.concat(dbPerson), "Added " + dbPerson.name )
+                    finalizeSubmit(persons.concat(dbPerson), "Added " + dbPerson.name)
 
                 })
-                .catch(error => { onMessage("error", "Unable to create!" ) })
+                .catch(error => { onErrorMessage("Unable to create", error) })
         }
     }
 
